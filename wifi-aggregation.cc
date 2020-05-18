@@ -94,7 +94,7 @@ NS_LOG_COMPONENT_DEFINE ("SimpleMpduAggregation");
 void installTrafficGenerator(Ptr<ns3::Node> fromNode, Ptr<ns3::Node> toNode, int port, string offeredLoad, int packetSize);
 bool fileExists(const std::string& filename);
 
-double simulationTime = 10; //seconds
+double simulationTime = 20; //seconds
 
 int main (int argc, char *argv[])
 {
@@ -102,12 +102,17 @@ int main (int argc, char *argv[])
  
   
   bool enableRts = 0;
-  //bool enablePcap = 0;
+  bool enablePcap = 0;
   bool verifyResults = 0; //used for regression
   int staNum = 1;
   double distance = 3; //meters
-  string offeredLoad ;
+  string offeredLoad = "200";
   string outputCsv = "aggregation.csv";
+
+  /////////////////////////////////////////////// CMD PARAMETERS ///////////////////////////////////////////
+  /////////////////////////////////////////////// CMD PARAMETERS ///////////////////////////////////////////
+  /////////////////////////////////////////////// CMD PARAMETERS ///////////////////////////////////////////
+  /////////////////////////////////////////////// CMD PARAMETERS ///////////////////////////////////////////
 
   CommandLine cmd;
   cmd.AddValue ("payloadSize", "Payload size in bytes", payloadSize);
@@ -115,13 +120,21 @@ int main (int argc, char *argv[])
   cmd.AddValue ("simulationTime", "Simulation time in seconds", simulationTime);
   cmd.AddValue ("distance", "Distance in meters between the station and the access point", distance);
   cmd.AddValue ("offeredLoad", "Offered Load", offeredLoad);
-  //cmd.AddValue ("enablePcap", "Enable/disable pcap file generation", enablePcap);
+  cmd.AddValue ("staNum", "Offered Load", staNum);
+  cmd.AddValue ("outputCsv", "Offered Load", outputCsv);
+  cmd.AddValue ("enablePcap", "Enable/disable pcap file generation", enablePcap);
   cmd.AddValue ("verifyResults", "Enable/disable results verification at the end of the simulation", verifyResults);
   cmd.Parse (argc, argv);
 
   Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", enableRts ? StringValue ("0") : StringValue ("999999"));
 
   offeredLoad = std::to_string(stod(offeredLoad)/(staNum));
+
+  ////////////////////////////////// Stations and AP Containers ////////////////////////////////////////
+  ////////////////////////////////// Stations and AP Containers ////////////////////////////////////////
+  ////////////////////////////////// Stations and AP Containers ////////////////////////////////////////
+  ////////////////////////////////// Stations and AP Containers and NET DEVICE CONTAINERS ////////////////////////////////////////
+  
 
   NodeContainer wifiStaNodesA, wifiStaNodesB, wifiStaNodesC, wifiStaNodesD;
   wifiStaNodesA.Create (staNum);
@@ -130,6 +143,14 @@ int main (int argc, char *argv[])
   wifiStaNodesD.Create (staNum);
   NodeContainer wifiApNodes;
   wifiApNodes.Create (4);
+
+  
+  NetDeviceContainer staDeviceA , apDeviceA;
+  NetDeviceContainer staDeviceB, staDeviceC, staDeviceD, apDeviceB, apDeviceC, apDeviceD;
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////// SETUP CHANNEL HELPER AND 802.11 Amdendment -->> 802.11ax 5GHZ
 
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
@@ -141,11 +162,16 @@ int main (int argc, char *argv[])
   wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("HeMcs11"), "ControlMode", StringValue ("HeMcs0"));
   WifiMacHelper mac;
 
-  NetDeviceContainer staDeviceA , apDeviceA;
-  NetDeviceContainer staDeviceB, staDeviceC, staDeviceD, apDeviceB, apDeviceC, apDeviceD;
+  
+
+  
+
+  ///////////////////////////////////// NETWORK A ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK A ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK A ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK A ///////////////////////////////////////////////////////
   Ssid ssid;
 
-  // Network A
   ssid = Ssid ("network-A");
   phy.Set ("ChannelNumber", UintegerValue (36));
   mac.SetType ("ns3::StaWifiMac",
@@ -160,139 +186,224 @@ int main (int argc, char *argv[])
                "EnableBeaconJitter", BooleanValue (false));
 
   
-  apDeviceA = wifi.Install (phy, mac, wifiApNodes.Get (0));
+  apDeviceA = wifi.Install (phy, mac, wifiApNodes.Get(0));
 
-  // // Network B
-  // ssid = Ssid ("network-B");
-  // phy.Set ("ChannelNumber", UintegerValue (40));
-  // mac.SetType ("ns3::StaWifiMac",
-  //              "Ssid", SsidValue (ssid));
+  ///////////////////////////////////// NETWORK B ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK B ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK B ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK B ///////////////////////////////////////////////////////
 
-  // staDeviceB = wifi.Install (phy, mac, wifiStaNodesB);
+  ssid = Ssid ("network-B");
+  phy.Set ("ChannelNumber", UintegerValue (40));
+  mac.SetType ("ns3::StaWifiMac",
+               "Ssid", SsidValue (ssid));
+
+  staDeviceB = wifi.Install (phy, mac, wifiStaNodesB);
+  
+  // Disable A-MPDU
+
+  Ptr<NetDevice> dev;
+  Ptr<WifiNetDevice> wifi_dev;
+
+  for(int i = 0 ; i < staNum; i++){
+    dev = wifiStaNodesB.Get (i)->GetDevice (0);
+    wifi_dev = DynamicCast<WifiNetDevice> (dev);
+    wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
+  }
+
+  mac.SetType ("ns3::ApWifiMac",
+               "Ssid", SsidValue (ssid),
+               "EnableBeaconJitter", BooleanValue (false));
+  
+  apDeviceB = wifi.Install (phy, mac, wifiApNodes.Get (1));
   
   // // Disable A-MPDU
-  // Ptr<NetDevice> dev = wifiStaNodesB.Get (1)->GetDevice (0);
-  // Ptr<WifiNetDevice> wifi_dev = DynamicCast<WifiNetDevice> (dev);
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
+  dev = wifiApNodes.Get (1)->GetDevice (0);
+  wifi_dev = DynamicCast<WifiNetDevice> (dev);
+  wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
 
-  // mac.SetType ("ns3::ApWifiMac",
-  //              "Ssid", SsidValue (ssid),
-  //              "EnableBeaconJitter", BooleanValue (false));
-  // apDeviceB = wifi.Install (phy, mac, wifiApNodes.Get (1));
-  
-  // // Disable A-MPDU
-  // dev = wifiApNodes.Get (1)->GetDevice (0);
-  // wifi_dev = DynamicCast<WifiNetDevice> (dev);
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
+  ///////////////////////////////////// NETWORK C ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK C ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK C ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK C ///////////////////////////////////////////////////////
 
-  // // Network C
-  // ssid = Ssid ("network-C");
-  // phy.Set ("ChannelNumber", UintegerValue (44));
-  // mac.SetType ("ns3::StaWifiMac",
-  //              "Ssid", SsidValue (ssid));
+  ssid = Ssid ("network-C");
+  phy.Set ("ChannelNumber", UintegerValue (44));
+  mac.SetType ("ns3::StaWifiMac",
+               "Ssid", SsidValue (ssid));
 
-  // staDeviceC = wifi.Install (phy, mac, wifiStaNodes.Get (2));
+  staDeviceC = wifi.Install (phy, mac, wifiStaNodesC);
 
-  // // Disable A-MPDU and enable A-MSDU with the highest maximum size allowed by the standard (7935 bytes)
-  // dev = wifiStaNodes.Get (2)->GetDevice (0);
-  // wifi_dev = DynamicCast<WifiNetDevice> (dev);
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (7935));
+  // Disable A-MPDU and enable A-MSDU with the highest maximum size allowed by the standard (7935 bytes)
+  for(int i = 0 ; i < staNum; i++){
+    dev = wifiStaNodesC.Get (i)->GetDevice (0);
+    wifi_dev = DynamicCast<WifiNetDevice> (dev);
+    wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
+    wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (7935));
+  }
 
-  // mac.SetType ("ns3::ApWifiMac",
-  //              "Ssid", SsidValue (ssid),
-  //              "EnableBeaconJitter", BooleanValue (false));
-  // apDeviceC = wifi.Install (phy, mac, wifiApNodes.Get (2));
+  mac.SetType ("ns3::ApWifiMac",
+               "Ssid", SsidValue (ssid),
+               "EnableBeaconJitter", BooleanValue (false));
+  apDeviceC = wifi.Install (phy, mac, wifiApNodes.Get (2));
 
   // // Disable A-MPDU and enable A-MSDU with the highest maximum size allowed by the standard (7935 bytes)
-  // dev = wifiApNodes.Get (2)->GetDevice (0);
-  // wifi_dev = DynamicCast<WifiNetDevice> (dev);
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (7935));
-
-  // // Network D
-  // ssid = Ssid ("network-D");
-  // phy.Set ("ChannelNumber", UintegerValue (48));
-  // mac.SetType ("ns3::StaWifiMac",
-  //              "Ssid", SsidValue (ssid));
-
-  // staDeviceD = wifi.Install (phy, mac, wifiStaNodes.Get (3));
-
-  // // Enable A-MPDU with a smaller size than the default one and
-  // // enable A-MSDU with the smallest maximum size allowed by the standard (3839 bytes)
-  // dev = wifiStaNodes.Get (3)->GetDevice (0);
-  // wifi_dev = DynamicCast<WifiNetDevice> (dev);
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (32768));
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (3839));
-
-  // mac.SetType ("ns3::ApWifiMac",
-  //              "Ssid", SsidValue (ssid),
-  //              "EnableBeaconJitter", BooleanValue (false));
-  // apDeviceD = wifi.Install (phy, mac, wifiApNodes.Get (3));
-
-  // // Enable A-MPDU with a smaller size than the default one and
-  // // enable A-MSDU with the smallest maximum size allowed by the standard (3839 bytes)
-  // dev = wifiApNodes.Get (3)->GetDevice (0);
-  // wifi_dev = DynamicCast<WifiNetDevice> (dev);
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (32768));
-  // wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (3839));
-
-
-
-  ////////////////////////////////////////////////
-  ////////////////////////////////////////////////
-  /////////////////////////////////////////////
-  ///////////////////////////////////////////////
-  
+  dev = wifiApNodes.Get (2)->GetDevice (0);
+  wifi_dev = DynamicCast<WifiNetDevice> (dev);
+  wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (0));
+  wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (7935));
 
   
+  ///////////////////////////////////// NETWORK D ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK D ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK D ///////////////////////////////////////////////////////
+  ///////////////////////////////////// NETWORK D ///////////////////////////////////////////////////////
+
+
+  ssid = Ssid ("network-D");
+  phy.Set ("ChannelNumber", UintegerValue (48));
+  mac.SetType ("ns3::StaWifiMac",
+               "Ssid", SsidValue (ssid));
+
+  staDeviceD = wifi.Install (phy, mac, wifiStaNodesD);
+
+  // Enable A-MPDU with a smaller size than the default one and
+  // enable A-MSDU with the smallest maximum size allowed by the standard (3839 bytes)
+  for(int i = 0 ; i < staNum; i++){
+    dev = wifiStaNodesD.Get (i)->GetDevice (0);
+    wifi_dev = DynamicCast<WifiNetDevice> (dev);
+    wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (32768));
+    wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (3839));
+  }
+
+  mac.SetType ("ns3::ApWifiMac",
+               "Ssid", SsidValue (ssid),
+               "EnableBeaconJitter", BooleanValue (false));
+  apDeviceD = wifi.Install (phy, mac, wifiApNodes.Get (3));
+
+  // Enable A-MPDU with a smaller size than the default one and
+  // enable A-MSDU with the smallest maximum size allowed by the standard (3839 bytes)
+  dev = wifiApNodes.Get (3)->GetDevice (0);
+  wifi_dev = DynamicCast<WifiNetDevice> (dev);
+  wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmpduSize", UintegerValue (32768));
+  wifi_dev->GetMac ()->SetAttribute ("BE_MaxAmsduSize", UintegerValue (3839));
+
+  //////////////////////////////////////////////// Allocate Stations and AP //////////////////////////////////////
+  //////////////////////////////////////////////// //////////////////////// //////////////////////////////////////
+   //////////////////////////////////////////////// Allocate Stations and AP //////////////////////////////////////
+  //////////////////////////////////////////////// //////////////////////// //////////////////////////////////////
+
 
   // Setting mobility model
   MobilityHelper mobility;
-  Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
+  Ptr<ListPositionAllocator> positionAllocA = CreateObject<ListPositionAllocator> ();
+  Ptr<ListPositionAllocator> positionAllocB = CreateObject<ListPositionAllocator> ();
+  Ptr<ListPositionAllocator> positionAllocC = CreateObject<ListPositionAllocator> ();
+  Ptr<ListPositionAllocator> positionAllocD = CreateObject<ListPositionAllocator> ();
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 
   // Set position for APs
-  positionAlloc->Add (Vector (0.0, 0.0, 0.0));
-  // positionAlloc->Add (Vector (100.0, 0.0, 0.0));
-  // positionAlloc->Add (Vector (200.0, 0.0, 0.0));
-  // positionAlloc->Add (Vector (300.0, 0.0, 0.0));
+  positionAllocA->Add (Vector (0.0, 0.0, 0.0));
+  positionAllocB->Add (Vector (100.0, 0.0, 0.0));
+  positionAllocC->Add (Vector (200.0, 0.0, 0.0));
+  positionAllocD->Add (Vector (300.0, 0.0, 0.0));
   // Set position for STAs
   for (int i = 0 ; i < staNum; i++){
-    positionAlloc->Add (Vector (distance, 0.0, 0.0));
+    positionAllocA->Add (Vector (distance, 0.0, 0.0));
+  }
+  for (int i = 0 ; i < staNum; i++){
+    positionAllocB->Add (Vector (distance + 100, 0.0, 0.0));
+  }
+   for (int i = 0 ; i < staNum; i++){
+    positionAllocC->Add (Vector (distance + 200, 0.0, 0.0));
+  }
+  for (int i = 0 ; i < staNum; i++){
+    positionAllocD->Add (Vector (distance + 300, 0.0, 0.0));
   }
 
 
-  mobility.SetPositionAllocator (positionAlloc);
-  mobility.Install (wifiApNodes);
+  mobility.SetPositionAllocator (positionAllocA);
+  mobility.Install (wifiApNodes.Get(0));
   mobility.Install (wifiStaNodesA);
-  //mobility.Install (wifiStaNodesB);
-  //mobility.Install (wifiStaNodesC);
-  //mobility.Install (wifiStaNodesD);
+  
+  mobility.SetPositionAllocator (positionAllocB);
+  mobility.Install (wifiApNodes.Get(1));
+  mobility.Install (wifiStaNodesB);
+  
+  mobility.SetPositionAllocator (positionAllocC);
+  mobility.Install (wifiApNodes.Get(2));
+  mobility.Install (wifiStaNodesC);
+  
+  mobility.SetPositionAllocator (positionAllocD);
+  mobility.Install (wifiApNodes.Get(3));
+  mobility.Install (wifiStaNodesD);
+ 
+
 
   // Internet stack
+////////////////////////////////////////// Assign addresses for each network ///////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////// Assign addresses for each network ///////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
   InternetStackHelper stack;
   stack.Install (wifiApNodes);
   stack.Install (wifiStaNodesA);
+  stack.Install (wifiStaNodesB);
+  stack.Install (wifiStaNodesC);
+  stack.Install (wifiStaNodesD);
    
   Ipv4InterfaceContainer StaInterfaceA;
   Ipv4InterfaceContainer ApInterfaceA;
-
-  Ipv4AddressHelper address;
-  address.SetBase ("192.168.1.0", "255.255.255.0");
-  ApInterfaceA = address.Assign (apDeviceA);
-  StaInterfaceA  = address.Assign (staDeviceA);
   
+  Ipv4InterfaceContainer StaInterfaceB;
+  Ipv4InterfaceContainer ApInterfaceB;
+  
+  Ipv4InterfaceContainer StaInterfaceC;
+  Ipv4InterfaceContainer ApInterfaceC;
+  
+  Ipv4InterfaceContainer StaInterfaceD;
+  Ipv4InterfaceContainer ApInterfaceD;
+
+  Ipv4AddressHelper addressA;
+  addressA.SetBase ("192.168.1.0", "255.255.255.0");
+  ApInterfaceA = addressA.Assign (apDeviceA);
+  StaInterfaceA  = addressA.Assign (staDeviceA);
+
+  Ipv4AddressHelper addressB;
+  addressB.SetBase ("192.168.2.0", "255.255.255.0"); // ssid = Ssid ("network-B");
+  ApInterfaceB = addressB.Assign (apDeviceB);
+  StaInterfaceB  = addressB.Assign (staDeviceB);
+
+    Ipv4AddressHelper addressC;
+  addressC.SetBase ("192.168.3.0", "255.255.255.0"); // ssid = Ssid ("network-B");
+  ApInterfaceC = addressC.Assign (apDeviceC);
+  StaInterfaceC  = addressC.Assign (staDeviceC);
 
 
-  /////////////////////////////// CREATE APPLICTION SINK ////////////////////////////////////////
+  Ipv4AddressHelper addressD;
+  addressD.SetBase ("192.168.4.0", "255.255.255.0"); // ssid = Ssid ("network-B");
+  ApInterfaceD = addressD.Assign (apDeviceD);
+  StaInterfaceD  = addressD.Assign (staDeviceD);
+
+
+
+  /////////////////////////////// Generate traffic for each network ////////////////////////////////////////
+  /////////////////////////////// ///////////////////////////////// ////////////////////////////////////////
   int port=9;
 	for(int i = 0; i < staNum; ++i) {
     
 		installTrafficGenerator(wifiStaNodesA.Get(i),wifiApNodes.Get(0), port++, offeredLoad, payloadSize);
+    installTrafficGenerator(wifiStaNodesB.Get(i),wifiApNodes.Get(1), port++, offeredLoad, payloadSize);
+    installTrafficGenerator(wifiStaNodesC.Get(i),wifiApNodes.Get(2), port++, offeredLoad, payloadSize);
+    installTrafficGenerator(wifiStaNodesD.Get(i),wifiApNodes.Get(3), port++, offeredLoad, payloadSize);
 	}
 
-  
+  ///////////////////////// FLOW MONITOR //////////////////////////////////////////////////
+  ///////////////////////// FLOW MONITOR //////////////////////////////////////////////////
+  ///////////////////////// FLOW MONITOR //////////////////////////////////////////////////
+  ///////////////////////// FLOW MONITOR //////////////////////////////////////////////////
 
   FlowMonitorHelper flowmon;
 	Ptr<FlowMonitor> monitor = flowmon.InstallAll ();
@@ -301,19 +412,20 @@ int main (int argc, char *argv[])
   double flowThr;
 	double flowDel;
 
- 
-  phy.EnablePcap ("AP_A", apDeviceA.Get (0));
-
- 
- 
+ if (enablePcap){
+  phy.EnablePcap ("AP_A", apDeviceA.Get(0));
+  phy.EnablePcap ("AP_B", apDeviceA.Get(1));
+  phy.EnablePcap ("AP_C", apDeviceA.Get(2));
+  phy.EnablePcap ("AP_D", apDeviceA.Get(3));
+  phy.EnablePcap ("STA_A", staDeviceA);
+  phy.EnablePcap ("STA_B", staDeviceB);
+  phy.EnablePcap ("STA_C", staDeviceC);
+  phy.EnablePcap ("STA_D", staDeviceD);
+ }
   Simulator::Stop (Seconds (simulationTime + 1));
   Simulator::Run ();
 
-	/* Contents of CSV output file-style
-	   Timestamp, OfferedLoad, nFast, nSlow, RngRun, SourceIP, DestinationIP, Throughput, Delay"
-	 */
-	 
-	
+
 	ofstream myfile;
 	if (fileExists(outputCsv))
 	{
@@ -347,6 +459,10 @@ int main (int argc, char *argv[])
 
   return 0;
 }
+//////////////////////////////////////////// HELPER FUNCTIONS //////////////////////////////////////////////////////
+//////////////////////////////////////////// HELPER FUNCTIONS //////////////////////////////////////////////////////
+//////////////////////////////////////////// HELPER FUNCTIONS //////////////////////////////////////////////////////
+//////////////////////////////////////////// HELPER FUNCTIONS //////////////////////////////////////////////////////
 
 void installTrafficGenerator(Ptr<ns3::Node> fromNode, Ptr<ns3::Node> toNode, int port, string offeredLoad, int packetSize) {
 
