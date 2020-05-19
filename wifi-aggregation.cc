@@ -46,6 +46,7 @@
 #include <string>
 #include <fstream>
 #include <string>
+#include <sstream>
 #include <ctime>
 #include <iomanip>
 #include <sys/stat.h>
@@ -91,6 +92,7 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("SimpleMpduAggregation");
 
+vector<string> splitString(string s, char delim);
 void installTrafficGenerator(Ptr<ns3::Node> fromNode, Ptr<ns3::Node> toNode, int port, string offeredLoad, int packetSize);
 bool fileExists(const std::string& filename);
 
@@ -101,11 +103,11 @@ int main (int argc, char *argv[])
   uint32_t payloadSize = 1472; //bytes
  
   
-  bool enableRts = 0;
+  bool enableRts = 1;
   bool enablePcap = 0;
   bool verifyResults = 0; //used for regression
   int staNum = 1;
-  double distance = 3; //meters
+  double distance = 50; //meters
   string offeredLoad = "200";
   string outputCsv = "aggregation.csv";
 
@@ -128,6 +130,7 @@ int main (int argc, char *argv[])
 
   Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", enableRts ? StringValue ("0") : StringValue ("999999"));
 
+  string buffOfferedLoad = offeredLoad;
   offeredLoad = std::to_string(stod(offeredLoad)/(staNum));
 
   ////////////////////////////////// Stations and AP Containers ////////////////////////////////////////
@@ -159,7 +162,7 @@ int main (int argc, char *argv[])
 
   WifiHelper wifi;
   wifi.SetStandard (WIFI_PHY_STANDARD_80211ax_5GHZ);
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("HeMcs11"), "ControlMode", StringValue ("HeMcs0"));
+  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("HeMcs0"), "ControlMode", StringValue ("HeMcs0"));
   WifiMacHelper mac;
 
   
@@ -367,7 +370,7 @@ int main (int argc, char *argv[])
   Ipv4InterfaceContainer ApInterfaceD;
 
   Ipv4AddressHelper addressA;
-  addressA.SetBase ("192.168.1.0", "255.255.255.0");
+  addressA.SetBase ("192.168.1.0", "255.255.255.0");  // ssid = Ssid ("network-A");
   ApInterfaceA = addressA.Assign (apDeviceA);
   StaInterfaceA  = addressA.Assign (staDeviceA);
 
@@ -377,13 +380,12 @@ int main (int argc, char *argv[])
   StaInterfaceB  = addressB.Assign (staDeviceB);
 
     Ipv4AddressHelper addressC;
-  addressC.SetBase ("192.168.3.0", "255.255.255.0"); // ssid = Ssid ("network-B");
+  addressC.SetBase ("192.168.3.0", "255.255.255.0"); // ssid = Ssid ("network-C");
   ApInterfaceC = addressC.Assign (apDeviceC);
   StaInterfaceC  = addressC.Assign (staDeviceC);
 
-
   Ipv4AddressHelper addressD;
-  addressD.SetBase ("192.168.4.0", "255.255.255.0"); // ssid = Ssid ("network-B");
+  addressD.SetBase ("192.168.4.0", "255.255.255.0"); // ssid = Ssid ("network-D");
   ApInterfaceD = addressD.Assign (apDeviceD);
   StaInterfaceD  = addressD.Assign (staDeviceD);
 
@@ -433,7 +435,7 @@ int main (int argc, char *argv[])
 	}
 	else {
 		myfile.open (outputCsv, ios::app);  
-		myfile << "OfferedLoad,nSta,RngRun,SourceIP,DestinationIP,Throughput,Delay" << std::endl;
+		myfile << "OfferedLoad,TopologyNumber,nSta,RngRun,Distance,PayloadSize,SourceIP,DestinationIP,Throughput,Delay,RtsCts" << std::endl;
 	}
   
 	//Get timestamp
@@ -446,8 +448,30 @@ int main (int argc, char *argv[])
 		Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
 		flowThr=i->second.rxPackets * payloadSize * 8.0 / (i->second.timeLastRxPacket.GetSeconds () - i->second.timeFirstTxPacket.GetSeconds ()) / 1000000;
 		flowDel=i->second.delaySum.GetSeconds () / i->second.rxPackets;
+
+    
+    ostringstream out;
+    t.sourceAddress.Print( out );
+    string s_res = out.str();
+    auto vec = splitString(s_res,'.');
+    string net_version = "";
+    
+    switch(stoi(vec[2])){
+      case 1:
+        net_version = "A";
+        break;
+      case 2:
+        net_version = "B";
+        break;
+      case 3:
+        net_version = "C";
+        break;
+      case 4:
+        net_version = "D";
+        break;
+    }
 		NS_LOG_UNCOND ("Flow " << i->first  << " (" << t.sourceAddress << " -> " << t.destinationAddress << ")\tThroughput: " <<  flowThr  << " Mbps\tTime: " << i->second.timeLastRxPacket.GetSeconds () - i->second.timeFirstTxPacket.GetSeconds () << "\tDelay: " << flowDel << " s\tTx packets " << i->second.txPackets << " s\tRx packets " << i->second.rxPackets << "\n");
-		myfile << offeredLoad << "," << staNum << "," << RngSeedManager::GetRun() << "," << t.sourceAddress << "," << t.destinationAddress << "," << flowThr << "," << flowDel;
+		myfile << buffOfferedLoad << "," << net_version << "," << staNum << "," << RngSeedManager::GetRun() << "," << distance << "," << payloadSize << "," << t.sourceAddress << "," << t.destinationAddress << "," << flowThr << "," << flowDel << "," << enableRts;
 		myfile << std::endl;
 	}
 	myfile.close();
@@ -539,7 +563,17 @@ double **calculateSTApositions(double x_ap, double y_ap, int h, int n_stations) 
 		sta_co[1][k]=y_ap+sin(tab[1][k])*tab[0][k];
 
 	}
-
-
 	return sta_co;
+}
+vector<string> splitString(string s, char delim)
+{
+  vector<string> res;
+  stringstream data(s);
+  string line;
+
+  while(getline(data,line,delim))
+  {
+    res.push_back(line);
+  }
+  return res;
 }
