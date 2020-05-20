@@ -40,6 +40,8 @@
 #include "ns3/config-store.h"
 #include "ns3/internet-module.h"
 #include "ns3/packet.h"
+#include "ns3/propagation-loss-model.h"
+#include "ns3/propagation-delay-model.h"
 #include <iostream>
 #include <vector>
 #include <math.h>
@@ -158,8 +160,11 @@ int main (int argc, char *argv[])
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
   phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
-  phy.SetChannel (channel.Create ());
-
+  //phy.SetChannel (channel.Create ());
+  // Add Nakagami fading to the default log distance model
+  channelHelper.AddPropagationLoss ("ns3::NakagamiPropagationLossModel");
+  phy.SetChannel (channelHelper.Create ());
+  
   WifiHelper wifi;
   wifi.SetStandard (WIFI_PHY_STANDARD_80211ax_5GHZ);
   wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("HeMcs11"), "ControlMode", StringValue ("HeMcs0"));
