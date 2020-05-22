@@ -40,8 +40,6 @@
 #include "ns3/config-store.h"
 #include "ns3/internet-module.h"
 #include "ns3/packet.h"
-#include "ns3/propagation-loss-model.h"
-#include "ns3/propagation-delay-model.h"
 #include <iostream>
 #include <vector>
 #include <math.h>
@@ -109,7 +107,7 @@ int main (int argc, char *argv[])
   bool enablePcap = 0;
   bool verifyResults = 0; //used for regression
   int staNum = 1;
-  double distance = 50; //meters
+  double distance = 3; //meters
   string offeredLoad = "200";
   string outputCsv = "aggregation.csv";
 
@@ -157,14 +155,19 @@ int main (int argc, char *argv[])
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////// SETUP CHANNEL HELPER AND 802.11 Amdendment -->> 802.11ax 5GHZ
 
-  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
+ // YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
+ // YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
+ // phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
+ // phy.SetChannel (channel.Create ());
+
+  // Configure wireless channel
   YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
-  phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
-  //phy.SetChannel (channel.Create ());
-  // Add Nakagami fading to the default log distance model
+  Ptr<YansWifiChannel> channel;
+  YansWifiChannelHelper channelHelper = YansWifiChannelHelper::Default ();
   channelHelper.AddPropagationLoss ("ns3::NakagamiPropagationLossModel");
+  phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
   phy.SetChannel (channelHelper.Create ());
-  
+  ////
   WifiHelper wifi;
   wifi.SetStandard (WIFI_PHY_STANDARD_80211ax_5GHZ);
   wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("HeMcs11"), "ControlMode", StringValue ("HeMcs0"));
